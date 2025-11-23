@@ -78,6 +78,9 @@ quadcopterImage.src = "drone.png";
 const vatnikImage = new Image();
 vatnikImage.src = "vatnik.png";
 
+const hideImage = new Image();
+hideImage.src = "hide.png";
+
 const explosionImage = new Image();
 explosionImage.src = "explosion.png";
 
@@ -183,10 +186,7 @@ function updateAndDrawMonsters() {
             return; // Skip update logic for dead monsters
         }
 
-        // Draw Living Monster
-        ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
-
-        // --- AI BEHAVIOR ---
+        // --- AI BEHAVIOR & DRAWING ---
 
         // FORCE CALM MODE (Override other states if too much time passed)
         if (isCalmMode) {
@@ -196,6 +196,7 @@ function updateAndDrawMonsters() {
                 textBubbleActive = false;
              }
              
+             ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
              // Calm behavior
              let calmSpeed = 2;
              if (Date.now() - m.lastDirectionChange >= 1000) {
@@ -212,6 +213,7 @@ function updateAndDrawMonsters() {
                 textBubbleActive = false;
             }
 
+            ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
             let panicSpeed = m.basePanicSpeed;
             if (Date.now() - m.lastDirectionChange >= 200) {
                 m.speed = Math.random() < 0.5 ? -panicSpeed : panicSpeed;
@@ -221,16 +223,15 @@ function updateAndDrawMonsters() {
         }
         // STAGE 2: TACTICAL (After first bomb, Health >= panicThreshold)
         else if (firstBombLanded) {
-            let runSpeed = m.baseRunSpeed;
 
             if (m.moveTimer > 0) {
                 // RUNNING STATE
+                ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
                 m.moveTimer--;
                 m.x += m.speed;
                 if (m.moveTimer <= 0) {
                     // Transition to WAITING
-                    // INCREASED RANDOMNESS: 1 to 5 seconds
-                    m.waitTimer = getRandomInt(60, 300); 
+                    m.waitTimer = getRandomInt(60, 300); // 1 to 5 seconds
                     
                     // Try to speak
                     if (!textBubbleActive) {
@@ -243,6 +244,7 @@ function updateAndDrawMonsters() {
                 }
             } else if (m.waitTimer > 0) {
                 // WAITING STATE
+                ctx.drawImage(hideImage, m.x - 50, groundY - 140);
                 m.waitTimer--;
                 // Show text only if this monster holds the lock
                 if (m.speaking) {
@@ -255,17 +257,15 @@ function updateAndDrawMonsters() {
                         m.speaking = false;
                         textBubbleActive = false;
                     }
-                    // INCREASED RANDOMNESS: 0.5 to 3.3 seconds
-                    m.moveTimer = getRandomInt(30, 200);
-                    // Add small speed variation
-                    let speedVariation = (Math.random() - 0.5) * 2; // -1 to 1
-                    let currentRunSpeed = runSpeed + speedVariation;
+                    m.moveTimer = getRandomInt(30, 200); // 0.5 to 3.3 seconds
+                    let speedVariation = (Math.random() - 0.5) * 2;
+                    let currentRunSpeed = m.baseRunSpeed + speedVariation;
                     m.speed = Math.random() < 0.5 ? -currentRunSpeed : currentRunSpeed;
                 }
             } else {
                 // Fallback init
+                ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
                 if (m.moveTimer <= 0 && m.waitTimer <= 0) {
-                     // Initial wait desync: 0.1 to 2 seconds
                      m.waitTimer = getRandomInt(6, 120); 
                      
                      if (!textBubbleActive) {
@@ -280,6 +280,7 @@ function updateAndDrawMonsters() {
         }
         // STAGE 1: CALM (Before first bomb)
         else {
+            ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
             let calmSpeed = 2;
             if (Date.now() - m.lastDirectionChange >= 1000) {
                 m.speed = Math.random() < 0.5 ? -calmSpeed : calmSpeed;
@@ -343,10 +344,8 @@ function dropBomb() {
                     }
 
                     m.waitTimer = 0; 
-                    // INCREASED RANDOMNESS: Reaction delay 0.5s to 2.5s
                     m.moveTimer = getRandomInt(30, 150); 
                     
-                    // Add small speed variation
                     let speedVariation = (Math.random() - 0.5) * 2;
                     let currentRunSpeed = m.baseRunSpeed + speedVariation;
                     
