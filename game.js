@@ -58,7 +58,8 @@ let gameTime = 0;
 
 const MAX_DAMAGE = 25;
 const MIN_DAMAGE = 5;
-const HIT_RADIUS = 100; // Радиус поражения
+const HIT_RADIUS = 100; // Радиус поражения для урона
+const REACTION_RADIUS = 200; // Радиус реакции монстров на взрыв
 
 // Monster AI State
 let firstBombLanded = false;
@@ -276,7 +277,10 @@ function updateAndDrawMonsters() {
         // --- AI LOGIC ---
         let prevX = m.x;
         if (isCalmMode) {
-             if (m.speaking) { m.speaking = false; textBubbleActive = false; }
+             if (m.speaking) {
+                m.speaking = false;
+                textBubbleActive = false;
+            }
              let calmSpeed = 2;
              if (Date.now() - m.lastDirectionChange >= 1000) {
                  m.speed = Math.random() < 0.5 ? -calmSpeed : calmSpeed;
@@ -285,7 +289,10 @@ function updateAndDrawMonsters() {
              m.x += m.speed;
         }
         else if (m.health < m.panicThreshold) {
-            if (m.speaking) { m.speaking = false; textBubbleActive = false; }
+            if (m.speaking) {
+                m.speaking = false;
+                textBubbleActive = false;
+            }
             let panicSpeed = m.basePanicSpeed;
             if (Date.now() - m.lastDirectionChange >= 200) {
                 m.speed = Math.random() < 0.5 ? -panicSpeed : panicSpeed;
@@ -310,7 +317,10 @@ function updateAndDrawMonsters() {
                     ctx.drawImage(drawtextArray[m.currentTextIndex], m.x - 165, groundY - 165);
                 }
                 if (m.waitTimer <= 0) {
-                    if (m.speaking) { m.speaking = false; textBubbleActive = false; }
+                    if (m.speaking) {
+                        m.speaking = false;
+                        textBubbleActive = false;
+                    }
                     m.moveTimer = getRandomInt(30, 200);
                     let speedVariation = (Math.random() - 0.5) * 2;
                     let currentRunSpeed = m.baseRunSpeed + speedVariation;
@@ -408,8 +418,10 @@ function dropBomb() {
             monsters.forEach(m => {
                 if (m.health <= 0) return;
 
-                // Reaction: Run away if in Stage 2 (and healthy enough not to panic yet)
-                if (m.health >= m.panicThreshold) {
+                let distance = Math.abs(explosionX - m.x);
+                
+                // Reaction: Run away if in Stage 2 (and healthy enough not to panic yet) AND within reaction radius
+                if (distance < REACTION_RADIUS && m.health >= m.panicThreshold) {
                     // Interrupt speaking
                     if (m.speaking) {
                         m.speaking = false;
@@ -426,7 +438,6 @@ function dropBomb() {
                 }
 
                 // Damage Calculation
-                let distance = Math.abs(explosionX - m.x);
                 if (distance < HIT_RADIUS) {
                     let damageFactor = 1 - (distance / HIT_RADIUS);
                     let damage = MIN_DAMAGE + (MAX_DAMAGE - MIN_DAMAGE) * damageFactor;
