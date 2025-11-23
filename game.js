@@ -191,7 +191,6 @@ function drawQuadcopter() {
     ctx.translate(centerX, centerY);
     ctx.rotate(quadcopterAngle); // Apply rotation
 
-    // Draw the image, offset by half its width and height to center it on the rotation point
     ctx.drawImage(quadcopterImage, -droneWidth / 2, -droneHeight / 2, droneWidth, droneHeight);
 
     ctx.restore(); // Restore the canvas state
@@ -249,7 +248,7 @@ function updateAndDrawMonsters() {
                     m.moveTimer--;
                     m.x += m.speed;
                     if (m.moveTimer <= 0) { // Finished moving, start waiting
-                        m.waitTimer = getRandomInt(180, 360); // Changed to 3-6 seconds (180-360 frames)
+                        m.waitTimer = getRandomInt(180, 360); 
                          if (!textBubbleActive) {
                             textBubbleActive = true; 
                             m.speaking = true;
@@ -261,9 +260,7 @@ function updateAndDrawMonsters() {
                 } else if (m.waitTimer > 0) {
                     isMoving = false;
                     m.waitTimer--;
-                    if (m.speaking) {
-                        ctx.drawImage(drawtextArray[m.currentTextIndex], m.x - 165, groundY - 165);
-                    }
+                    // No drawing here, only update state
                     if (m.waitTimer <= 0) { // Finished waiting, start moving
                         if (m.speaking) {
                             m.speaking = false;
@@ -288,7 +285,7 @@ function updateAndDrawMonsters() {
                 break;
         }
 
-        // --- Animation & Drawing ---
+        // --- Animation & Drawing --- (Monster body and movement)
         let currentSprite;
         if(isMoving) {
             m.animationTimer++;
@@ -341,6 +338,14 @@ function updateAndDrawMonsters() {
     });
 }
 
+// New function to draw speech bubbles on top
+function drawMonsterSpeechBubbles() {
+    monsters.forEach(m => {
+        if (m.health > 0 && m.state === 2 && m.speaking) {
+            ctx.drawImage(drawtextArray[m.currentTextIndex], m.x - 165, groundY - 165);
+        }
+    });
+}
 
 // Функция отрисовки бомбы
 function drawBomb() {
@@ -529,10 +534,11 @@ function getRandomInt(min, max) {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(BackgroundImage, 0, 0);  
-  updateAndDrawMonsters();
+  updateAndDrawMonsters(); // Updates monster state and draws monster bodies (not speech bubbles)
   drawQuadcopter();
   drawField();
   drawDamageNumbers(); 
+  drawMonsterSpeechBubbles(); // Draw speech bubbles last, on top of everything
 }
 
 // Игровой цикл.
