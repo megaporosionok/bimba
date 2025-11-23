@@ -1,5 +1,27 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+
+function resizeCanvas() {
+    const targetRatio = 1200 / 800; // Original width / Original height
+    const windowRatio = window.innerWidth / window.innerHeight;
+    
+    let newWidth, newHeight;
+
+    if (windowRatio < targetRatio) {
+        newWidth = window.innerWidth;
+        newHeight = window.innerWidth / targetRatio;
+    } else {
+        newHeight = window.innerHeight;
+        newWidth = window.innerHeight * targetRatio;
+    }
+
+    canvas.style.width = newWidth + "px";
+    canvas.style.height = newHeight + "px";
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
 var gamestarted = 0;
 var groundY = canvas.height - 20;
 var monsterX = canvas.width/2;
