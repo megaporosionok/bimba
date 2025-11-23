@@ -61,7 +61,7 @@ const MIN_DAMAGE = 5;
 const HIT_RADIUS = 100; // Радиус поражения для урона
 
 // Monster AI State
-const CALM_DOWN_TIME = 3000; // Time in ms to calm down from one state to the previous one
+const CALM_DOWN_TIME = 6000; // Time in ms to calm down from one state to the previous one (increased to 6 seconds)
 let textBubbleActive = false; // Controls if any text is currently being shown
 
 // Floating Damage Numbers
@@ -249,7 +249,7 @@ function updateAndDrawMonsters() {
                     m.moveTimer--;
                     m.x += m.speed;
                     if (m.moveTimer <= 0) { // Finished moving, start waiting
-                        m.waitTimer = getRandomInt(60, 200);
+                        m.waitTimer = getRandomInt(180, 240);
                          if (!textBubbleActive) {
                             textBubbleActive = true; 
                             m.speaking = true;
