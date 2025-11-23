@@ -190,7 +190,18 @@ function updateAndDrawMonsters() {
                 m.speaking = false;
                 textBubbleActive = false;
             }
-            ctx.drawImage(DeadImage, m.x - 50, groundY - 100);
+            // Use lastDirection for dead sprite
+            ctx.save();
+            let deadImageWidth = DeadImage.naturalWidth;
+            let deadImageHeight = DeadImage.naturalHeight;
+            if (m.lastDirection === 1) {
+                ctx.translate(m.x, groundY - 100 + deadImageHeight / 2);
+                ctx.scale(-1, 1);
+                ctx.drawImage(DeadImage, -deadImageWidth / 2, -deadImageHeight / 2, deadImageWidth, deadImageHeight);
+            } else {
+                ctx.drawImage(DeadImage, m.x - deadImageWidth / 2, groundY - 100, deadImageWidth, deadImageHeight);
+            }
+            ctx.restore();
             return; // Skip update logic for dead monsters
         }
         
@@ -222,9 +233,23 @@ function updateAndDrawMonsters() {
             m.animationTimer = 0;
         }
         
-        ctx.drawImage(currentSprite, m.x - 50, groundY - 140);
+        // Apply mirroring
+        ctx.save();
+        let drawDirection = isMoving ? m.direction : m.lastDirection; // Use current direction if moving, otherwise last direction
+        let spriteWidth = currentSprite.naturalWidth;
+        let spriteHeight = currentSprite.naturalHeight;
+
+        if (drawDirection === 1) {
+            ctx.translate(m.x, groundY - 140 + spriteHeight / 2);
+            ctx.scale(-1, 1);
+            ctx.drawImage(currentSprite, -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight);
+        } else {
+            ctx.drawImage(currentSprite, m.x - spriteWidth / 2, groundY - 140, spriteWidth, spriteHeight);
+        }
+        ctx.restore();
         
         // --- AI LOGIC ---
+        let prevX = m.x;
         if (isCalmMode) {
              if (m.speaking) { m.speaking = false; textBubbleActive = false; }
              let calmSpeed = 2;
@@ -283,6 +308,19 @@ function updateAndDrawMonsters() {
                 m.lastDirectionChange = Date.now();
             }
             m.x += m.speed;
+        }
+
+        // Update direction and lastDirection based on movement
+        if (m.x > prevX) {
+            if (m.direction !== 1) {
+                m.lastDirection = m.direction;
+                m.direction = 1;
+            }
+        } else if (m.x < prevX) {
+            if (m.direction !== -1) {
+                m.lastDirection = m.direction;
+                m.direction = -1;
+            }
         }
 
         // --- BOUNDARY CHECKS ---
@@ -532,6 +570,8 @@ function startgame(){
             speaking: false, // Is this monster currently showing a text bubble?
             animationFrame: 0,
             animationTimer: 0,
+            direction: -1, // -1 for left, 1 for right
+            lastDirection: -1, // Stores the last direction for hide/dead states
             // Traits randomisation
             baseRunSpeed: getRandomInt(5, 9),
             basePanicSpeed: getRandomInt(11, 15),
@@ -552,9 +592,19 @@ function endgame(){
     // Just draw the end screen over whatever state the game is in
     ctx.drawImage(BackgroundImage, 0, 0);  
     
-    // Draw dead bodies of everyone
+    // Draw dead bodies of everyone (now with mirroring)
     monsters.forEach(m => {
-        ctx.drawImage(DeadImage, m.x - 50, groundY - 100);
+        ctx.save();
+        let deadImageWidth = DeadImage.naturalWidth;
+        let deadImageHeight = DeadImage.naturalHeight;
+        if (m.lastDirection === 1) {
+            ctx.translate(m.x, groundY - 100 + deadImageHeight / 2);
+            ctx.scale(-1, 1);
+            ctx.drawImage(DeadImage, -deadImageWidth / 2, -deadImageHeight / 2, deadImageWidth, deadImageHeight);
+        } else {
+            ctx.drawImage(DeadImage, m.x - deadImageWidth / 2, groundY - 100, deadImageWidth, deadImageHeight);
+        }
+        ctx.restore();
     });
 
     drawStart();
