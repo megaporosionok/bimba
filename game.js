@@ -59,14 +59,10 @@ let gameTime = 0;
 const MAX_DAMAGE = 25;
 const MIN_DAMAGE = 5;
 const HIT_RADIUS = 100; // Радиус поражения для урона
-const REACTION_RADIUS = 200; // Радиус реакции монстров на взрыв
 
 // Monster AI State
-let firstBombLanded = false;
-let lastExplosionX = 0;
-let lastExplosionTime = 0; // Time of the last explosion
+const CALM_DOWN_TIME = 3000; // Time in ms to calm down from one state to the previous one
 let textBubbleActive = false; // Controls if any text is currently being shown
-const CALM_DOWN_TIME = 7000; // Time in ms to calm down
 
 // Floating Damage Numbers
 let damageNumbers = [];
@@ -202,21 +198,9 @@ function drawQuadcopter() {
 };
 
 function updateAndDrawMonsters() {
-    // Check if monsters should calm down
-    let isCalmMode = false;
-    if (firstBombLanded && (Date.now() - lastExplosionTime > CALM_DOWN_TIME)) {
-        isCalmMode = true;
-    }
-
     monsters.forEach(m => {
         // Handle Death
         if (m.health <= 0) {
-            // If they died while speaking, release the lock
-            if (m.speaking) {
-                m.speaking = false;
-                textBubbleActive = false;
-            }
-            // Use lastDirection for dead sprite
             ctx.save();
             let deadImageWidth = DeadImage.naturalWidth;
             let deadImageHeight = DeadImage.naturalHeight;
@@ -231,21 +215,82 @@ function updateAndDrawMonsters() {
             return; // Skip update logic for dead monsters
         }
         
-        // --- Animate and Draw Monster ---
-        let currentSprite;
+        // --- State Calming Logic ---
+        if (m.state > 1 && Date.now() - m.lastDamageTime > CALM_DOWN_TIME) {
+            m.state--;
+            m.lastDamageTime = Date.now(); 
+            // Reset timers when calming down to prevent weird state-leaks
+            m.waitTimer = 0;
+            m.moveTimer = 0;
+            if (m.speaking) {
+                m.speaking = false;
+                textBubbleActive = false;
+            }
+        }
+        
         let isMoving = false;
         
-        // Determine state and if moving
-        if (isCalmMode || m.health >= m.panicThreshold && !firstBombLanded || m.moveTimer > 0) {
-            isMoving = true;
-        } else if (m.health < m.panicThreshold && !isCalmMode) {
-            isMoving = true;
-        } else if (m.waitTimer > 0) {
-            isMoving = false;
+        // --- AI MOVEMENT LOGIC based on State ---
+        let prevX = m.x;
+
+        switch (m.state) {
+            case 1: // Calm walking
+                isMoving = true;
+                if (Date.now() - m.lastDirectionChange >= 1500) { 
+                    m.speed = Math.random() < 0.5 ? -m.baseCalmSpeed : m.baseCalmSpeed;
+                    m.lastDirectionChange = Date.now();
+                }
+                m.x += m.speed;
+                break;
+
+            case 2: // Agitated: alternate move and wait
+                 if (m.moveTimer > 0) {
+                    isMoving = true;
+                    m.moveTimer--;
+                    m.x += m.speed;
+                    if (m.moveTimer <= 0) { // Finished moving, start waiting
+                        m.waitTimer = getRandomInt(60, 200);
+                         if (!textBubbleActive) {
+                            textBubbleActive = true; 
+                            m.speaking = true;
+                            m.currentTextIndex = getRandomInt(0, drawtextArray.length - 1);
+                        } else { 
+                            m.speaking = false; 
+                        }
+                    }
+                } else if (m.waitTimer > 0) {
+                    isMoving = false;
+                    m.waitTimer--;
+                    if (m.speaking) {
+                        ctx.drawImage(drawtextArray[m.currentTextIndex], m.x - 165, groundY - 165);
+                    }
+                    if (m.waitTimer <= 0) { // Finished waiting, start moving
+                        if (m.speaking) {
+                            m.speaking = false;
+                            textBubbleActive = false;
+                        }
+                        m.moveTimer = getRandomInt(30, 150);
+                        m.speed = Math.random() < 0.5 ? -m.baseAgitatedSpeed : m.baseAgitatedSpeed;
+                    }
+                } else { // If no timers are active, start one
+                    m.moveTimer = getRandomInt(30, 150);
+                    m.speed = Math.random() < 0.5 ? -m.baseAgitatedSpeed : m.baseAgitatedSpeed;
+                }
+                break;
+
+            case 3: // Panic
+                isMoving = true;
+                if (Date.now() - m.lastDirectionChange >= 200) { 
+                    m.speed = Math.random() < 0.5 ? -m.basePanicSpeed : m.basePanicSpeed;
+                    m.lastDirectionChange = Date.now();
+                }
+                m.x += m.speed;
+                break;
         }
 
-        // Set sprite and handle animation
-        if (isMoving) {
+        // --- Animation & Drawing ---
+        let currentSprite;
+        if(isMoving) {
             m.animationTimer++;
             if (m.animationTimer > 10) {
                 m.animationTimer = 0;
@@ -253,99 +298,12 @@ function updateAndDrawMonsters() {
             }
             currentSprite = walkAnimationFrames[m.animationFrame];
         } else {
-            // If waiting, use hide image and reset animation
-            currentSprite = hideImage;
-            m.animationFrame = 0;
-            m.animationTimer = 0;
+             currentSprite = hideImage;
+             m.animationFrame = 0;
+             m.animationTimer = 0;
         }
         
-        // Apply mirroring
-        ctx.save();
-        let drawDirection = isMoving ? m.direction : m.lastDirection; // Use current direction if moving, otherwise last direction
-        let spriteWidth = currentSprite.naturalWidth;
-        let spriteHeight = currentSprite.naturalHeight;
-
-        if (drawDirection === 1) {
-            ctx.translate(m.x, groundY - 140 + spriteHeight / 2);
-            ctx.scale(-1, 1);
-            ctx.drawImage(currentSprite, -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight);
-        } else {
-            ctx.drawImage(currentSprite, m.x - spriteWidth / 2, groundY - 140, spriteWidth, spriteHeight);
-        }
-        ctx.restore();
-        
-        // --- AI LOGIC ---
-        let prevX = m.x;
-        if (isCalmMode) {
-             if (m.speaking) {
-                m.speaking = false;
-                textBubbleActive = false;
-            }
-             let calmSpeed = 2;
-             if (Date.now() - m.lastDirectionChange >= 1000) {
-                 m.speed = Math.random() < 0.5 ? -calmSpeed : calmSpeed;
-                 m.lastDirectionChange = Date.now();
-             }
-             m.x += m.speed;
-        }
-        else if (m.health < m.panicThreshold) {
-            if (m.speaking) {
-                m.speaking = false;
-                textBubbleActive = false;
-            }
-            let panicSpeed = m.basePanicSpeed;
-            if (Date.now() - m.lastDirectionChange >= 200) {
-                m.speed = Math.random() < 0.5 ? -panicSpeed : panicSpeed;
-                m.lastDirectionChange = Date.now();
-            }
-            m.x += m.speed;
-        }
-        else if (firstBombLanded) {
-            if (m.moveTimer > 0) {
-                m.moveTimer--;
-                m.x += m.speed;
-                if (m.moveTimer <= 0) {
-                    m.waitTimer = getRandomInt(60, 300);
-                    if (!textBubbleActive) {
-                        textBubbleActive = true; m.speaking = true;
-                        m.currentTextIndex = getRandomInt(0, 6);
-                    } else { m.speaking = false; }
-                }
-            } else if (m.waitTimer > 0) {
-                m.waitTimer--;
-                if (m.speaking) {
-                    ctx.drawImage(drawtextArray[m.currentTextIndex], m.x - 165, groundY - 165);
-                }
-                if (m.waitTimer <= 0) {
-                    if (m.speaking) {
-                        m.speaking = false;
-                        textBubbleActive = false;
-                    }
-                    m.moveTimer = getRandomInt(30, 200);
-                    let speedVariation = (Math.random() - 0.5) * 2;
-                    let currentRunSpeed = m.baseRunSpeed + speedVariation;
-                    m.speed = Math.random() < 0.5 ? -currentRunSpeed : currentRunSpeed;
-                }
-            } else {
-                if (m.moveTimer <= 0 && m.waitTimer <= 0) {
-                     m.waitTimer = getRandomInt(6, 120);
-                     if (!textBubbleActive) {
-                        textBubbleActive = true; m.speaking = true;
-                        m.currentTextIndex = getRandomInt(0, 6);
-                     } else { m.speaking = false; }
-                }
-            }
-        }
-        else {
-            let calmSpeed = 2;
-            if (Date.now() - m.lastDirectionChange >= 1000) {
-                m.speed = Math.random() < 0.5 ? -calmSpeed : calmSpeed;
-                m.lastDirectionChange = Date.now();
-            }
-            m.x += m.speed;
-        }
-
-        // Update direction and lastDirection based on movement
+        // Update direction based on movement
         if (m.x > prevX) {
             if (m.direction !== 1) {
                 m.lastDirection = m.direction;
@@ -358,6 +316,20 @@ function updateAndDrawMonsters() {
             }
         }
 
+        ctx.save();
+        let drawDirection = isMoving ? m.direction : m.lastDirection;
+        let spriteWidth = currentSprite.naturalWidth;
+        let spriteHeight = currentSprite.naturalHeight;
+
+        if (drawDirection === 1) { 
+            ctx.translate(m.x, groundY - 140 + spriteHeight / 2);
+            ctx.scale(-1, 1);
+            ctx.drawImage(currentSprite, -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight);
+        } else {
+            ctx.drawImage(currentSprite, m.x - spriteWidth / 2, groundY - 140, spriteWidth, spriteHeight);
+        }
+        ctx.restore();
+        
         // --- BOUNDARY CHECKS ---
         if (m.x < 0) {
             m.x = 0;
@@ -410,33 +382,12 @@ function dropBomb() {
             explosionY = groundY;
             explosionTimer = 60;
             
-            firstBombLanded = true;
-            lastExplosionX = explosionX;
-            lastExplosionTime = Date.now(); // Update explosion time
-            
-            // Loop through all monsters for collision and reaction
+            // Loop through all monsters for damage
             monsters.forEach(m => {
                 if (m.health <= 0) return;
 
                 let distance = Math.abs(explosionX - m.x);
                 
-                // Reaction: Run away if in Stage 2 (and healthy enough not to panic yet) AND within reaction radius
-                if (distance < REACTION_RADIUS && m.health >= m.panicThreshold) {
-                    // Interrupt speaking
-                    if (m.speaking) {
-                        m.speaking = false;
-                        textBubbleActive = false;
-                    }
-
-                    m.waitTimer = 0; 
-                    m.moveTimer = getRandomInt(30, 150); 
-                    
-                    let speedVariation = (Math.random() - 0.5) * 2;
-                    let currentRunSpeed = m.baseRunSpeed + speedVariation;
-                    
-                    m.speed = (m.x < explosionX) ? -currentRunSpeed : currentRunSpeed;
-                }
-
                 // Damage Calculation
                 if (distance < HIT_RADIUS) {
                     let damageFactor = 1 - (distance / HIT_RADIUS);
@@ -484,23 +435,48 @@ function handleKeyUp(event) {
 }
 
 function onhit(damage, monster) {
-        monster.health = monster.health - damage;
-        
-        // Spawn damage number at monster's location
-        damageNumbers.push({
-            x: monster.x,
-            y: groundY - 150, 
-            value: damage,
-            opacity: 1.0,
-            life: 60 
-        });
-        
-        // Check for Game Over (if all are dead)
+    // Prevent state change or damage if already dead
+    if (monster.health <= 0) return;
+
+    monster.health -= damage;
+    monster.lastDamageTime = Date.now();
+
+    // State transition logic
+    let previousState = monster.state;
+    if (monster.state === 1) {
+        monster.state = 2;
+    } else if (monster.state === 2) {
+        monster.state = 3;
+    }
+    
+    // If state changed, interrupt current action
+    if (monster.state !== previousState) {
+        monster.waitTimer = 0;
+        monster.moveTimer = 0; // Reset timers to start new behavior immediately
+        if(monster.speaking) {
+            monster.speaking = false;
+            textBubbleActive = false;
+        }
+    }
+
+    // Spawn damage number at monster's location
+    damageNumbers.push({
+        x: monster.x,
+        y: groundY - 150, 
+        value: damage,
+        opacity: 1.0,
+        life: 60 
+    });
+    
+    // Check for Game Over only after applying damage
+    if (monster.health <= 0) {
         let totalHealth = monsters.reduce((sum, m) => sum + (m.health > 0 ? m.health : 0), 0);
         if (totalHealth <= 0) { 
             endgame();          
-        }            
+        }
+    }          
 }
+
 
 function drawDamageNumbers() {
     ctx.font = "bold 30px Arial";
@@ -600,10 +576,6 @@ function startgame(){
     keys.ArrowLeft = false; 
     keys.ArrowRight = false;
     damageNumbers = []; 
-    
-    // Reset global state
-    firstBombLanded = false;
-    lastExplosionTime = Date.now(); // Init so they don't calm down immediately
     textBubbleActive = false;
     
     // Init Monsters
@@ -612,20 +584,23 @@ function startgame(){
         monsters.push({
             x: getRandomInt(50, canvas.width - 50),
             health: 100,
-            speed: (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random()), 
+            state: 1, // 1: calm, 2: agitated, 3: panic
+            lastDamageTime: 0,
+            speed: 0,
             lastDirectionChange: Date.now() + Math.random() * 1000,
-            waitTimer: getRandomInt(0, 100), // Random start wait to further desync
-            moveTimer: 0,
-            currentTextIndex: 0,
-            speaking: false, // Is this monster currently showing a text bubble?
             animationFrame: 0,
             animationTimer: 0,
             direction: -1, // -1 for left, 1 for right
-            lastDirection: -1, // Stores the last direction for hide/dead states
+            lastDirection: -1,
+            // Timers and state for phase 2
+            waitTimer: 0,
+            moveTimer: 0,
+            speaking: false,
+            currentTextIndex: 0,
             // Traits randomisation
-            baseRunSpeed: getRandomInt(5, 9),
-            basePanicSpeed: getRandomInt(11, 15),
-            panicThreshold: getRandomInt(25, 45) 
+            baseCalmSpeed: getRandomInt(1, 3),
+            baseAgitatedSpeed: getRandomInt(4, 7),
+            basePanicSpeed: getRandomInt(8, 12)
         });
     }
 
