@@ -34,6 +34,9 @@ var quadcopterVX = 0; // Скорость дрона по X
 const DRONE_ACCELERATION = 0.8;
 const DRONE_FRICTION = 0.92;
 const DRONE_MAX_SPEED = 15;
+var quadcopterAngle = 0; // Current rotation angle of the drone
+const MAX_TILT_ANGLE = 0.3; // Maximum tilt angle in radians (e.g., ~17 degrees)
+const TILT_SMOOTHING = 0.1; // How quickly the drone tilts
 
 var bombX;
 var bombY;
@@ -160,6 +163,12 @@ function updateDrone() {
     // Apply velocity
     quadcopterX += quadcopterVX;
 
+    // Calculate target tilt angle based on velocity (inverted)
+    let targetAngle = quadcopterVX / DRONE_MAX_SPEED * MAX_TILT_ANGLE;
+
+    // Smoothly interpolate the current angle towards the target angle
+    quadcopterAngle += (targetAngle - quadcopterAngle) * TILT_SMOOTHING;
+
     // Boundaries
     if (quadcopterX < 0) {
         quadcopterX = 0;
@@ -172,7 +181,21 @@ function updateDrone() {
 
 // Функция отрисовки квадрокоптера
 function drawQuadcopter() {
-  ctx.drawImage(quadcopterImage, quadcopterX, quadcopterY);
+    ctx.save(); // Save the current canvas state
+
+    // Translate to the center of the drone image for rotation
+    const droneWidth = quadcopterImage.naturalWidth;
+    const droneHeight = quadcopterImage.naturalHeight;
+    const centerX = quadcopterX + droneWidth / 2;
+    const centerY = quadcopterY + droneHeight / 2;
+
+    ctx.translate(centerX, centerY);
+    ctx.rotate(quadcopterAngle); // Apply rotation
+
+    // Draw the image, offset by half its width and height to center it on the rotation point
+    ctx.drawImage(quadcopterImage, -droneWidth / 2, -droneHeight / 2, droneWidth, droneHeight);
+
+    ctx.restore(); // Restore the canvas state
 };
 
 function updateAndDrawMonsters() {
