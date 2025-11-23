@@ -249,7 +249,7 @@ function updateAndDrawMonsters() {
                     m.moveTimer--;
                     m.x += m.speed;
                     if (m.moveTimer <= 0) { // Finished moving, start waiting
-                        m.waitTimer = getRandomInt(180, 240);
+                        m.waitTimer = getRandomInt(180, 360); // Changed to 3-6 seconds (180-360 frames)
                          if (!textBubbleActive) {
                             textBubbleActive = true; 
                             m.speaking = true;
@@ -586,7 +586,7 @@ function startgame(){
             health: 100,
             state: 1, // 1: calm, 2: agitated, 3: panic
             lastDamageTime: 0,
-            speed: 0,
+            speed: (Math.random() < 0.5 ? -1 : 1) * getRandomInt(1, 3), // Initial speed for calm state
             lastDirectionChange: Date.now() + Math.random() * 1000,
             animationFrame: 0,
             animationTimer: 0,
