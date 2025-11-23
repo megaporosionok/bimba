@@ -47,6 +47,8 @@ const BOMB_SPEED = 5; // начальная скорость бомбы
 const BOMB_INERTIA_FACTOR = 0.5; // Коэффициент передачи инерции (0.0 - 1.0)
 var bomb_ready = 1; // переменная для хранения состояния бомбы
 var bomb_landed = 1;
+var bombAngle = 0; // Angle for bomb rotation
+const BOMB_ROTATION_SPEED = 0.1; // Speed of bomb rotation
 let speed = 0;
 const gravity = 0.15;
 let explosionTimer = 60;
@@ -360,7 +362,19 @@ function updateAndDrawMonsters() {
 
 // Функция отрисовки бомбы
 function drawBomb() {
-  ctx.drawImage(granadeImage, bombX-10, bombY-40);
+    ctx.save(); // Save the current canvas state
+
+    const bombWidth = granadeImage.naturalWidth;
+    const bombHeight = granadeImage.naturalHeight;
+    const centerX = bombX - 10 + bombWidth / 2; // Adjust for initial offset
+    const centerY = bombY - 40 + bombHeight / 2; // Adjust for initial offset
+
+    ctx.translate(centerX, centerY);
+    ctx.rotate(bombAngle);
+
+    ctx.drawImage(granadeImage, -bombWidth / 2, -bombHeight / 2, bombWidth, bombHeight);
+
+    ctx.restore(); // Restore the canvas state
 }
 
 // Функция отрисовки кнопки Старт
@@ -373,6 +387,7 @@ function dropBomb() {
         speed += gravity;
         bombY = bombY + speed;
         bombX += bombVX; 
+        bombAngle += BOMB_ROTATION_SPEED; // Rotate the bomb
 
         if (bombY < groundY) {
             drawBomb();
@@ -380,6 +395,7 @@ function dropBomb() {
             bomb_ready = 1;
             speed = 0;
             bombVX = 0;
+            bombAngle = 0; // Reset bomb angle on landing
             explosionX = bombX;
             explosionY = groundY;
             explosionTimer = 60;
