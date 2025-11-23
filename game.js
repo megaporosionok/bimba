@@ -77,6 +77,14 @@ quadcopterImage.src = "drone.png";
 
 const vatnikImage = new Image();
 vatnikImage.src = "vatnik.png";
+const vatnikStep1Image = new Image();
+vatnikStep1Image.src = "vatnik_step1.png";
+const vatnikStep2Image = new Image();
+vatnikStep2Image.src = "vatnik_step2.png";
+const vatnikStep3Image = new Image();
+vatnikStep3Image.src = "vatnik_step3.png";
+const walkAnimationFrames = [vatnikImage, vatnikStep3Image, vatnikStep1Image, vatnikStep2Image];
+
 
 const hideImage = new Image();
 hideImage.src = "hide.png";
@@ -185,19 +193,40 @@ function updateAndDrawMonsters() {
             ctx.drawImage(DeadImage, m.x - 50, groundY - 100);
             return; // Skip update logic for dead monsters
         }
+        
+        // --- Animate and Draw Monster ---
+        let currentSprite;
+        let isMoving = false;
+        
+        // Determine state and if moving
+        if (isCalmMode || m.health >= m.panicThreshold && !firstBombLanded || m.moveTimer > 0) {
+            isMoving = true;
+        } else if (m.health < m.panicThreshold && !isCalmMode) {
+            isMoving = true;
+        } else if (m.waitTimer > 0) {
+            isMoving = false;
+        }
 
-        // --- AI BEHAVIOR & DRAWING ---
-
-        // FORCE CALM MODE (Override other states if too much time passed)
+        // Set sprite and handle animation
+        if (isMoving) {
+            m.animationTimer++;
+            if (m.animationTimer > 10) {
+                m.animationTimer = 0;
+                m.animationFrame = (m.animationFrame + 1) % walkAnimationFrames.length;
+            }
+            currentSprite = walkAnimationFrames[m.animationFrame];
+        } else {
+            // If waiting, use hide image and reset animation
+            currentSprite = hideImage;
+            m.animationFrame = 0;
+            m.animationTimer = 0;
+        }
+        
+        ctx.drawImage(currentSprite, m.x - 50, groundY - 140);
+        
+        // --- AI LOGIC ---
         if (isCalmMode) {
-             // Reset speaking if active
-             if (m.speaking) {
-                m.speaking = false;
-                textBubbleActive = false;
-             }
-             
-             ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
-             // Calm behavior
+             if (m.speaking) { m.speaking = false; textBubbleActive = false; }
              let calmSpeed = 2;
              if (Date.now() - m.lastDirectionChange >= 1000) {
                  m.speed = Math.random() < 0.5 ? -calmSpeed : calmSpeed;
@@ -205,15 +234,8 @@ function updateAndDrawMonsters() {
              }
              m.x += m.speed;
         }
-        // STAGE 3: PANIC (Health < panicThreshold)
         else if (m.health < m.panicThreshold) {
-            // Panic behavior doesn't support speaking
-            if (m.speaking) {
-                m.speaking = false;
-                textBubbleActive = false;
-            }
-
-            ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
+            if (m.speaking) { m.speaking = false; textBubbleActive = false; }
             let panicSpeed = m.basePanicSpeed;
             if (Date.now() - m.lastDirectionChange >= 200) {
                 m.speed = Math.random() < 0.5 ? -panicSpeed : panicSpeed;
@@ -221,66 +243,40 @@ function updateAndDrawMonsters() {
             }
             m.x += m.speed;
         }
-        // STAGE 2: TACTICAL (After first bomb, Health >= panicThreshold)
         else if (firstBombLanded) {
-
             if (m.moveTimer > 0) {
-                // RUNNING STATE
-                ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
                 m.moveTimer--;
                 m.x += m.speed;
                 if (m.moveTimer <= 0) {
-                    // Transition to WAITING
-                    m.waitTimer = getRandomInt(60, 300); // 1 to 5 seconds
-                    
-                    // Try to speak
+                    m.waitTimer = getRandomInt(60, 300);
                     if (!textBubbleActive) {
-                        textBubbleActive = true;
-                        m.speaking = true;
+                        textBubbleActive = true; m.speaking = true;
                         m.currentTextIndex = getRandomInt(0, 6);
-                    } else {
-                        m.speaking = false;
-                    }
+                    } else { m.speaking = false; }
                 }
             } else if (m.waitTimer > 0) {
-                // WAITING STATE
-                ctx.drawImage(hideImage, m.x - 50, groundY - 140);
                 m.waitTimer--;
-                // Show text only if this monster holds the lock
                 if (m.speaking) {
                     ctx.drawImage(drawtextArray[m.currentTextIndex], m.x - 165, groundY - 165);
                 }
-                
                 if (m.waitTimer <= 0) {
-                    // Transition to RUNNING
-                    if (m.speaking) {
-                        m.speaking = false;
-                        textBubbleActive = false;
-                    }
-                    m.moveTimer = getRandomInt(30, 200); // 0.5 to 3.3 seconds
+                    if (m.speaking) { m.speaking = false; textBubbleActive = false; }
+                    m.moveTimer = getRandomInt(30, 200);
                     let speedVariation = (Math.random() - 0.5) * 2;
                     let currentRunSpeed = m.baseRunSpeed + speedVariation;
                     m.speed = Math.random() < 0.5 ? -currentRunSpeed : currentRunSpeed;
                 }
             } else {
-                // Fallback init
-                ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
                 if (m.moveTimer <= 0 && m.waitTimer <= 0) {
-                     m.waitTimer = getRandomInt(6, 120); 
-                     
+                     m.waitTimer = getRandomInt(6, 120);
                      if (!textBubbleActive) {
-                        textBubbleActive = true;
-                        m.speaking = true;
+                        textBubbleActive = true; m.speaking = true;
                         m.currentTextIndex = getRandomInt(0, 6);
-                     } else {
-                        m.speaking = false;
-                     }
+                     } else { m.speaking = false; }
                 }
             }
         }
-        // STAGE 1: CALM (Before first bomb)
         else {
-            ctx.drawImage(vatnikImage, m.x - 50, groundY - 140);
             let calmSpeed = 2;
             if (Date.now() - m.lastDirectionChange >= 1000) {
                 m.speed = Math.random() < 0.5 ? -calmSpeed : calmSpeed;
@@ -534,6 +530,8 @@ function startgame(){
             moveTimer: 0,
             currentTextIndex: 0,
             speaking: false, // Is this monster currently showing a text bubble?
+            animationFrame: 0,
+            animationTimer: 0,
             // Traits randomisation
             baseRunSpeed: getRandomInt(5, 9),
             basePanicSpeed: getRandomInt(11, 15),
