@@ -416,10 +416,8 @@ function handleKeyDown(event) {
         keys[event.code] = true;
     }
 
-    if (event.code === "Enter") {
-        if (gamestarted == 0) {
-            startgame();
-        }
+    if (gamestarted == 0) {
+        startgame();
     }
 
     if (event.code === "Space") {
