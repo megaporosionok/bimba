@@ -429,6 +429,15 @@ function handleKeyDown(event) {
             bomb_ready = 0;
         }
     }
+
+    // Debug: нанесение 20 урона всем монстрам при нажатии 'g'
+    if (gamestarted == 1 && event.code === "KeyG") {
+        monsters.forEach(m => {
+            if (m.health > 0) { // Только для живых монстров
+                onhit(20, m);
+            }
+        });
+    }
 }
 
 function handleKeyUp(event) {
