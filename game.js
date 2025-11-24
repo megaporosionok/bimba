@@ -667,6 +667,6 @@ function endgame(){
 function drawControll (){
 ctx.clearRect(0, 0, canvas.width, canvas.height);
 ctx.drawImage(ControllImage, 0, 0);
-drawStart();
+
 }
 setTimeout(drawControll,500);
