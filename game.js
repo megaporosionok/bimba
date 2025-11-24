@@ -416,7 +416,7 @@ function handleKeyDown(event) {
         keys[event.code] = true;
     }
 
-    if (gamestarted == 0) {
+    if (gamestarted == 0 && canRestartGame) {
         startgame();
     }
 
@@ -483,7 +483,7 @@ function onhit(damage, monster) {
     // Check for Game Over only after applying damage
     if (monster.health <= 0) {
         let totalHealth = monsters.reduce((sum, m) => sum + (m.health > 0 ? m.health : 0), 0);
-        if (totalHealth <= 0) { 
+        if (totalHealth <= 0) {
             endgame();          
         }
     }          
@@ -582,6 +582,7 @@ function startgame(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     explosionTimer = 0;
     gamestarted = 1;
+    canRestartGame = false; // Сбрасываем при старте новой игры
     
     quadcopterX = canvas.width/2-100;
     quadcopterY = 50;
@@ -624,9 +625,11 @@ function startgame(){
     startGameTime();
 }
 
-// Конец игры игры
+// Добавлена глобальная переменная
+var canRestartGame = true; 
 function endgame(){
     gamestarted =0;
+    canRestartGame = false; // Отключаем возможность перезапуска сразу
     // Just draw the end screen over whatever state the game is in
     ctx.drawImage(BackgroundImage, 0, 0);  
     
@@ -645,18 +648,25 @@ function endgame(){
         ctx.restore();
     });
 
-    drawStart();
     drawQuadcopter();
     startGameTime();
     
     ctx.fillStyle = "blue";
     ctx.font = "bold 50px Arial";
     ctx.fillText(`Your Time: ${gameTime/1000}`, canvas.width/2-200, canvas.height/2-100);
+
+    // Через 3 секунды показываем кнопку "Start" и разрешаем перезапуск
+    setTimeout(() => {
+        canRestartGame = true;
+        drawStart(); // Показываем кнопку "Start"
+    }, 3000); // 3 секунды
+
 }
 
 // Заставка
 function drawControll (){
 ctx.clearRect(0, 0, canvas.width, canvas.height);
 ctx.drawImage(ControllImage, 0, 0);
+drawStart();
 }
 setTimeout(drawControll,500);
